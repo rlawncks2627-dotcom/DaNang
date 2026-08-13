@@ -1,75 +1,21 @@
 'use client'
 
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
-
 import { useTrip } from '@/components/TripProvider'
+
+import { useLinkTable } from './useLinkTable'
 
 type Vote = { place_id: string; member_id: string }
 
 const keyOf = (v: Vote) => `${v.place_id}:${v.member_id}`
 
-/**
- * 하트 투표.
- *
- * place_votes는 기본키가 (place_id, member_id) 복합이라 useRealtimeTable을
- * 쓸 수 없다. 삭제 이벤트에는 REPLICA IDENTITY대로 두 컬럼이 함께 실려 온다.
- *
- * 구독을 먼저 걸고 스냅샷을 뒤에 찍는 순서는 useRealtimeTable과 같다.
- */
+/** 하트 투표. */
 export function usePlaceVotes() {
   const { supabase, me } = useTrip()
-  const [votes, setVotes] = useState<Vote[]>([])
-
-  useEffect(() => {
-    let active = true
-    let snapshotApplied = false
-    const pending: RealtimePostgresChangesPayload<Vote>[] = []
-
-    function apply(payload: RealtimePostgresChangesPayload<Vote>) {
-      setVotes((prev) => {
-        if (payload.eventType === 'DELETE') {
-          const gone = payload.old as Vote
-          return prev.filter((v) => keyOf(v) !== keyOf(gone))
-        }
-        const row = payload.new as Vote
-        return [...prev.filter((v) => keyOf(v) !== keyOf(row)), row]
-      })
-    }
-
-    const channel = supabase
-      .channel('realtime:place_votes')
-      .on<Vote>(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'place_votes' },
-        (payload) => {
-          if (!active) return
-          if (snapshotApplied) apply(payload)
-          else pending.push(payload)
-        },
-      )
-
-    channel.subscribe((status) => {
-      if (status !== 'SUBSCRIBED' || !active) return
-
-      void (async () => {
-        const { data } = await supabase
-          .from('place_votes')
-          .select('place_id, member_id')
-        if (!active) return
-
-        setVotes(data ?? [])
-        pending.forEach(apply)
-        pending.length = 0
-        snapshotApplied = true
-      })()
-    })
-
-    return () => {
-      active = false
-      void supabase.removeChannel(channel)
-    }
-  }, [supabase])
+  const { rows: votes, setRows: setVotes } = useLinkTable<Vote>(
+    'place_votes',
+    'place_id, member_id',
+    keyOf,
+  )
 
   function votersOf(placeId: string) {
     return votes.filter((v) => v.place_id === placeId).map((v) => v.member_id)
