@@ -1,7 +1,7 @@
 'use client'
 
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 import { useTrip } from '@/components/TripProvider'
 import type { Database } from '@/lib/supabase/types'
@@ -37,6 +37,9 @@ export function useRealtimeTable<T extends IdentifiedTable>(
   compare: (a: RowOf<T>, b: RowOf<T>) => number,
 ) {
   const { supabase } = useTrip()
+  // 같은 테이블을 두 화면이 함께 구독할 수 있다(일정표가 장소를 읽는 식).
+  // 채널 이름이 겹치면 한쪽이 다른 쪽을 끊으므로 인스턴스마다 다르게 둔다.
+  const instanceId = useId()
   const [rows, setRows] = useState<RowOf<T>[]>([])
   const [loading, setLoading] = useState(true)
   const [reconnectKey, setReconnectKey] = useState(0)
@@ -69,7 +72,7 @@ export function useRealtimeTable<T extends IdentifiedTable>(
     }
 
     const channel = supabase
-      .channel(`realtime:${table}`)
+      .channel(`realtime:${table}:${instanceId}`)
       .on<RowOf<T>>(
         'postgres_changes',
         { event: '*', schema: 'public', table },
@@ -106,7 +109,7 @@ export function useRealtimeTable<T extends IdentifiedTable>(
     }
     // compare는 렌더마다 새 함수라 의존성에서 뺀다. 정렬 기준은 화면 수명 동안 고정이다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, table, reconnectKey])
+  }, [supabase, table, instanceId, reconnectKey])
 
   /** 서버 응답을 기다리지 않고 화면을 먼저 고친다. 실시간 이벤트가 곧 진실로 덮는다. */
   function applyLocal(next: (prev: RowOf<T>[]) => RowOf<T>[]) {
