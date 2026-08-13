@@ -16,6 +16,7 @@
 | `/bookings` | 항공·숙소·픽업, 비상 연락처 |
 | `/notes` | 메모와 사진 타임라인 |
 | `/join/<코드>` | 초대 링크로 들어오는 입구 |
+| `/join` | 코드 없이 온 사람에게 링크로 오라고 안내 |
 
 ## 개발
 
@@ -32,7 +33,11 @@ npx eslint .     # 린트
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | publishable 키 |
-| `NEXT_PUBLIC_TRIP_CODE` | 여행 초대 코드. 공유 링크는 `/join/<코드>` |
+| `TRIP_CODE` | 여행 초대 코드. 공유 링크는 `/join/<코드>` |
+
+> `TRIP_CODE`에는 **`NEXT_PUBLIC_` 접두사를 붙이지 않는다.** 붙이면 코드가
+> 브라우저 번들에 박혀서, 앱 주소를 아는 사람이 코드를 꺼내 빈 자리를
+> 차지할 수 있다. 이 값은 빌드할 때 서버에서만 읽힌다.
 
 ## 배포
 
@@ -60,7 +65,7 @@ npx serve out          # 확인용으로 띄워보기
 
 - **웹 서버가 필요하다.** `out/index.html`을 더블클릭해 열면 화면 이동이 깨진다.
   경로가 `/`부터 시작하는데 `file://`에는 그 뿌리가 없기 때문이다.
-- **초대 링크는 하나만 구워진다.** `NEXT_PUBLIC_TRIP_CODE`에 든 코드다.
+- **초대 링크는 하나만 구워진다.** `TRIP_CODE`에 든 코드다.
   코드를 바꾸면 다시 구워야 한다. 서버로 띄울 때는 이 제약이 없다.
 
 ## 데이터베이스
@@ -93,6 +98,10 @@ npx supabase gen types typescript --project-id zvvcziaayljdiwupwawc > lib/supaba
 비밀번호가 없다. 초대 코드가 담긴 링크로 들어오면 익명 로그인이 자동 실행되고,
 `claim_member()`가 그 계정을 멤버 자리에 묶는다. 이후 모든 테이블의 RLS는
 "이 여행의 멤버인가"만 확인한다.
+
+**앱은 초대 코드를 들고 있지 않다.** 세션 없는 방문자는 `/join`으로 보내
+"초대 링크로 들어와 주세요"만 보여준다. 코드는 공유한 링크와 서버 전용
+환경변수에만 있다.
 
 익명 로그인은 `role=authenticated` JWT를 발급하므로 `anon` 역할에는
 아무 권한도 열어두지 않았다.

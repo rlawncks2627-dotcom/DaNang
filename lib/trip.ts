@@ -1,7 +1,10 @@
 /**
- * 초대 코드는 이 앱의 유일한 열쇠다.
- * 저장소가 public이므로 값 자체는 .env.local과 Vercel 환경변수에만 둔다.
+ * 초대 코드를 모르는 방문자가 도착하는 곳.
+ *
+ * 예전에는 여기서 `/join/<코드>`를 만들어 넘겼는데, 그러려면 코드를
+ * 브라우저가 들고 있어야 했다 — 즉 주소를 아는 사람은 누구나 코드를
+ * 꺼내 빈 자리를 차지할 수 있었다.
+ *
+ * 이제 코드는 서버 전용 환경변수(TRIP_CODE)와 공유한 링크에만 있다.
  */
-export const TRIP_CODE = process.env.NEXT_PUBLIC_TRIP_CODE ?? ''
-
-export const joinPath = `/join/${TRIP_CODE}`
+export const JOIN_PATH = '/join'

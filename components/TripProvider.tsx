@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 import { createClient } from '@/lib/supabase/client'
 import type { Member, Trip } from '@/lib/supabase/types'
-import { joinPath } from '@/lib/trip'
+import { JOIN_PATH } from '@/lib/trip'
 
 import { Wordmark } from './Wordmark'
 
@@ -54,7 +54,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       if (!active) return
 
       if (!session) {
-        router.replace(joinPath)
+        router.replace(JOIN_PATH)
         return
       }
 
@@ -69,7 +69,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       const me = members?.find((m) => m.user_id === session.user.id)
 
       if (!trip || !members || !me) {
-        router.replace(joinPath)
+        router.replace(JOIN_PATH)
         return
       }
 
