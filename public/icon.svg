@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- 간판 팔레트 그대로. 글자를 넣지 않아 작은 크기에서도 뭉개지지 않는다. -->
+  <rect width="512" height="512" fill="#D8412F"/>
+  <circle cx="256" cy="196" r="92" fill="#EFEEE6"/>
+  <path d="M0 336 C 85 296, 171 376, 256 336 C 341 296, 427 376, 512 336 L512 512 L0 512 Z" fill="#1F6B5C"/>
+</svg>
