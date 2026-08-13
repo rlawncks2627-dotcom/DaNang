@@ -3,18 +3,22 @@
 import { useRouter } from 'next/navigation'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import type { Member, Trip } from '@/lib/supabase/types'
 import { JOIN_PATH } from '@/lib/trip'
 
+import { MissingEnvScreen } from './MissingEnvScreen'
 import { Wordmark } from './Wordmark'
+
+/** createClient는 설정이 없으면 null을 주므로, 여기서 null을 벗겨낸다. */
+type SupabaseClient = NonNullable<ReturnType<typeof createClient>>
 
 type TripContextValue = {
   trip: Trip
   members: Member[]
   /** 지금 이 기기에서 로그인한 사람 */
   me: Member
-  supabase: ReturnType<typeof createClient>
+  supabase: SupabaseClient
   refresh: () => void
 }
 
@@ -38,19 +42,27 @@ type State =
  */
 export function TripProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+
+  // 설정이 없으면 클라이언트를 만들지 않는다. 만들다 예외가 나면
+  // 빌드가 프리렌더 단계에서 통째로 깨진다.
   const supabase = useMemo(() => createClient(), [])
 
   const [state, setState] = useState<State>({ status: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
+    // 지역 상수로 받아야 아래 함수 안에서도 null이 아님이 유지된다
+    const client = supabase
+    if (!client) return
+
     // 화면을 떠난 뒤 도착한 응답은 버린다
     let active = true
 
-    async function load() {
+    // 화살표 함수로 둔다. 호이스팅되는 함수 선언 안으로는 null 좁히기가 전파되지 않는다.
+    const load = async () => {
       const {
         data: { session },
-      } = await supabase.auth.getSession()
+      } = await client.auth.getSession()
       if (!active) return
 
       if (!session) {
@@ -60,8 +72,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
       // RLS가 멤버 아닌 사람에게 빈 결과를 준다. 별도 권한 검사가 필요 없다.
       const [{ data: trips }, { data: members }] = await Promise.all([
-        supabase.from('trips').select('*').limit(1),
-        supabase.from('members').select('*').order('sort_order'),
+        client.from('trips').select('*').limit(1),
+        client.from('members').select('*').order('sort_order'),
       ])
       if (!active) return
 
@@ -82,6 +94,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       active = false
     }
   }, [router, supabase, reloadKey])
+
+  if (!isSupabaseConfigured || !supabase) {
+    return <MissingEnvScreen />
+  }
 
   if (state.status === 'loading') {
     return (

@@ -3,8 +3,9 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
+import { MissingEnvScreen } from '@/components/MissingEnvScreen'
 import { Wordmark } from '@/components/Wordmark'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import type { MemberSlot } from '@/lib/supabase/types'
 
 type Screen =
@@ -30,16 +31,21 @@ export function JoinScreen() {
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    // 지역 상수로 받아야 아래 함수 안에서도 null이 아님이 유지된다
+    const client = supabase
+    if (!client) return
+
     let active = true
 
-    async function prepare() {
+    // 화살표 함수로 둔다. 호이스팅되는 함수 선언 안으로는 null 좁히기가 전파되지 않는다.
+    const prepare = async () => {
       const {
         data: { session },
-      } = await supabase.auth.getSession()
+      } = await client.auth.getSession()
       if (!active) return
 
       if (!session) {
-        const { error } = await supabase.auth.signInAnonymously()
+        const { error } = await client.auth.signInAnonymously()
         if (!active) return
         if (error) {
           setScreen({
@@ -52,14 +58,14 @@ export function JoinScreen() {
       }
 
       // 이미 자리를 가진 사람이면 고르는 화면을 건너뛴다 (재방문·기기 복귀)
-      const { data: mine } = await supabase.from('members').select('id').limit(1)
+      const { data: mine } = await client.from('members').select('id').limit(1)
       if (!active) return
       if (mine && mine.length > 0) {
         router.replace('/')
         return
       }
 
-      const { data: slots, error } = await supabase.rpc('list_member_slots', {
+      const { data: slots, error } = await client.rpc('list_member_slots', {
         p_code: code,
       })
       if (!active) return
@@ -83,7 +89,7 @@ export function JoinScreen() {
   }, [code, router, supabase, attempt])
 
   async function pick(slot: MemberSlot) {
-    if (screen.step !== 'choose') return
+    if (screen.step !== 'choose' || !supabase) return
     setScreen({ step: 'claiming', slots: screen.slots, pickedId: slot.id })
 
     const { error } = await supabase.rpc('claim_member', {
@@ -107,6 +113,10 @@ export function JoinScreen() {
   function retry() {
     setScreen({ step: 'preparing' })
     setAttempt((n) => n + 1)
+  }
+
+  if (!isSupabaseConfigured || !supabase) {
+    return <MissingEnvScreen />
   }
 
   return (
