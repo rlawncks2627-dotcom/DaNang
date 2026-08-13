@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 
+import { PhotoPicker } from '@/components/PhotoPicker'
 import { todayLocal } from '@/lib/days'
+import { useSignedUrls } from '@/lib/hooks/useSignedUrls'
 import { formatKrw, formatVnd, krwToVnd, vndToKrw } from '@/lib/money'
 import type { Expense, Member } from '@/lib/supabase/types'
 import { EXPENSE_CATEGORIES } from '@/lib/supabase/types'
@@ -16,6 +18,10 @@ export type ExpenseDraft = {
   sharerIds: string[]
   spent_at: string
   memo: string
+  /** 이미 올라가 있는 영수증의 저장 경로 */
+  receiptPath: string | null
+  /** 새로 고른 영수증. 저장할 때 올린다 */
+  receiptFile: File | null
 }
 
 export function emptyExpense(members: Member[], me: Member): ExpenseDraft {
@@ -29,6 +35,8 @@ export function emptyExpense(members: Member[], me: Member): ExpenseDraft {
     sharerIds: members.map((m) => m.id),
     spent_at: todayLocal(),
     memo: '',
+    receiptPath: null,
+    receiptFile: null,
   }
 }
 
@@ -46,6 +54,8 @@ export function expenseDraftFrom(
     sharerIds,
     spent_at: expense.spent_at,
     memo: expense.memo ?? '',
+    receiptPath: expense.receipt_url,
+    receiptFile: null,
   }
 }
 
@@ -66,6 +76,8 @@ export function ExpenseForm({
 }) {
   const [draft, setDraft] = useState(initial)
   const [saving, setSaving] = useState(false)
+
+  const receiptUrls = useSignedUrls(draft.receiptPath ? [draft.receiptPath] : [])
 
   function set<K extends keyof ExpenseDraft>(key: K, value: ExpenseDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }))
@@ -230,6 +242,41 @@ export function ExpenseForm({
           className="min-h-14 w-full border border-line bg-paper px-4"
         />
       </label>
+
+      <div className="mb-4">
+        <p className="mb-1 font-bold">영수증</p>
+        {draft.receiptPath ? (
+          <div className="flex items-start gap-3">
+            {receiptUrls[draft.receiptPath] ? (
+              /* 서명 URL은 한 시간짜리라 next/image로 최적화할 수 없다 */
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={receiptUrls[draft.receiptPath]}
+                alt="영수증"
+                className="h-24 w-24 border border-line object-cover"
+              />
+            ) : (
+              <div className="grid h-24 w-24 place-items-center border border-line text-sm text-muted">
+                여는 중…
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => set('receiptPath', null)}
+              className="min-h-11 border border-line px-3 text-sm font-bold text-signal"
+            >
+              빼기
+            </button>
+          </div>
+        ) : (
+          <PhotoPicker
+            files={draft.receiptFile ? [draft.receiptFile] : []}
+            onChange={(files) => set('receiptFile', files[0] ?? null)}
+            max={1}
+            label="영수증 찍기"
+          />
+        )}
+      </div>
 
       <div className="flex gap-2">
         <button

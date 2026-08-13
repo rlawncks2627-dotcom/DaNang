@@ -15,6 +15,7 @@ import { useTrip } from '@/components/TripProvider'
 import { formatDay } from '@/lib/days'
 import { useExpenseShares } from '@/lib/hooks/useExpenseShares'
 import { useRealtimeTable } from '@/lib/hooks/useRealtimeTable'
+import { useSignedUrls } from '@/lib/hooks/useSignedUrls'
 import {
   computeNets,
   formatKrw,
@@ -23,6 +24,7 @@ import {
   settle,
   vndToKrw,
 } from '@/lib/money'
+import { removePhotos, uploadPhoto } from '@/lib/photos'
 import type { Expense } from '@/lib/supabase/types'
 import { EXPENSE_CATEGORIES } from '@/lib/supabase/types'
 
@@ -40,6 +42,10 @@ export default function ExpensesPage() {
   const rate = trip.base_rate_vnd_krw
   const memberIds = members.map((m) => m.id)
 
+  const receiptUrls = useSignedUrls(
+    rows.map((e) => e.receipt_url).filter((p): p is string => Boolean(p)),
+  )
+
   const nets = computeNets(rows, sharerIdsOf, memberIds)
   const transfers = settle(nets)
   const total = rows.reduce((sum, e) => sum + (e.amount_krw ?? 0), 0)
@@ -52,31 +58,57 @@ export default function ExpensesPage() {
       : { amount_vnd: krwToVnd(value, rate), amount_krw: value }
   }
 
-  function toRow(draft: ExpenseDraft) {
+  function toRow(draft: ExpenseDraft, receiptUrl: string | null) {
     return {
       title: draft.title.trim(),
       category: draft.category,
       paid_by: draft.paid_by,
       spent_at: draft.spent_at,
       memo: draft.memo.trim() || null,
+      receipt_url: receiptUrl,
       ...amounts(draft),
     }
   }
 
+  /** 새로 고른 영수증이 있으면 올리고, 그 경로를 쓴다. */
+  async function resolveReceipt(draft: ExpenseDraft) {
+    if (!draft.receiptFile) return draft.receiptPath
+    return uploadPhoto(supabase, trip.id, draft.receiptFile)
+  }
+
   async function create(draft: ExpenseDraft) {
-    const { data } = await supabase
+    const receiptUrl = await resolveReceipt(draft)
+
+    const { data, error } = await supabase
       .from('expenses')
-      .insert({ ...toRow(draft), trip_id: trip.id })
+      .insert({ ...toRow(draft, receiptUrl), trip_id: trip.id })
       .select()
       .single()
 
-    if (data) await replace(data.id, draft.sharerIds)
+    if (error || !data) {
+      // 지출이 안 들어갔으면 방금 올린 영수증도 치운다
+      if (receiptUrl && receiptUrl !== draft.receiptPath) {
+        await removePhotos(supabase, [receiptUrl])
+      }
+      return
+    }
+
+    await replace(data.id, draft.sharerIds)
     setEditing(null)
   }
 
   async function update(id: string, draft: ExpenseDraft) {
-    await supabase.from('expenses').update(toRow(draft)).eq('id', id)
+    const previous = rows.find((e) => e.id === id)?.receipt_url ?? null
+    const receiptUrl = await resolveReceipt(draft)
+
+    await supabase.from('expenses').update(toRow(draft, receiptUrl)).eq('id', id)
     await replace(id, draft.sharerIds)
+
+    // 바꾸거나 뺀 영수증은 저장공간에서도 없앤다
+    if (previous && previous !== receiptUrl) {
+      await removePhotos(supabase, [previous])
+    }
+
     setEditing(null)
   }
 
@@ -84,6 +116,9 @@ export default function ExpensesPage() {
     applyLocal((prev) => prev.filter((e) => e.id !== expense.id))
     // expense_shares는 on delete cascade로 함께 사라진다
     await supabase.from('expenses').delete().eq('id', expense.id)
+    if (expense.receipt_url) {
+      await removePhotos(supabase, [expense.receipt_url])
+    }
   }
 
   // 날짜별로 묶는다. rows는 이미 최신순이라 순서가 유지된다.
@@ -223,6 +258,24 @@ export default function ExpensesPage() {
 
                     {expense.memo && (
                       <p className="mt-1 text-muted">{expense.memo}</p>
+                    )}
+
+                    {expense.receipt_url && receiptUrls[expense.receipt_url] && (
+                      <a
+                        href={receiptUrls[expense.receipt_url]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-block"
+                      >
+                        {/* 서명 URL은 한 시간짜리라 next/image로 최적화할 수 없다 */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={receiptUrls[expense.receipt_url]}
+                          alt="영수증"
+                          loading="lazy"
+                          className="h-20 w-20 border border-line object-cover"
+                        />
+                      </a>
                     )}
 
                     <div className="mt-3 flex gap-2">
