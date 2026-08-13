@@ -25,6 +25,7 @@ export type Database = {
           ends_at: string | null
           file_url: string | null
           id: string
+          is_emergency: boolean
           memo: string | null
           phone: string | null
           sort_order: number
@@ -41,6 +42,7 @@ export type Database = {
           ends_at?: string | null
           file_url?: string | null
           id?: string
+          is_emergency?: boolean
           memo?: string | null
           phone?: string | null
           sort_order?: number
@@ -57,6 +59,7 @@ export type Database = {
           ends_at?: string | null
           file_url?: string | null
           id?: string
+          is_emergency?: boolean
           memo?: string | null
           phone?: string | null
           sort_order?: number
