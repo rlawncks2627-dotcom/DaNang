@@ -1,5 +1,8 @@
 import type { MetadataRoute } from 'next'
 
+// 내용이 고정이라 한 번만 굽는다. 정적 내보내기에도 필요하다.
+export const dynamic = 'force-static'
+
 /**
  * 홈 화면에 설치했을 때의 모습.
  *

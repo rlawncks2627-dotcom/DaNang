@@ -43,6 +43,26 @@ npx vercel        # 최초 연결
 npx vercel --prod # 배포
 ```
 
+### 정적 HTML로 내보내기
+
+이 앱은 서버에서 하는 일이 없다 — 데이터는 전부 브라우저가 Supabase에 직접
+물어본다. 그래서 HTML 파일 묶음으로 구워 아무 정적 호스팅에나 올릴 수 있다.
+
+```bash
+npm run build:static   # out/ 폴더에 굽는다
+npx serve out          # 확인용으로 띄워보기
+```
+
+`out/`은 gitignore되어 있다. 굽힌 결과에는 초대 코드와 Supabase 키가 들어가므로
+커밋하지 않는다.
+
+주의할 점 둘:
+
+- **웹 서버가 필요하다.** `out/index.html`을 더블클릭해 열면 화면 이동이 깨진다.
+  경로가 `/`부터 시작하는데 `file://`에는 그 뿌리가 없기 때문이다.
+- **초대 링크는 하나만 구워진다.** `NEXT_PUBLIC_TRIP_CODE`에 든 코드다.
+  코드를 바꾸면 다시 구워야 한다. 서버로 띄울 때는 이 제약이 없다.
+
 ## 데이터베이스
 
 Supabase 프로젝트: `danang-family-trip` (ap-northeast-2)

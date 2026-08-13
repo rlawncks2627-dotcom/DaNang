@@ -13,6 +13,9 @@ import { ImageResponse } from 'next/og'
 export const size = { width: 180, height: 180 }
 export const contentType = 'image/png'
 
+// 그림이 빌드 시점에 정해지므로 한 번만 굽는다. 정적 내보내기에도 필요하다.
+export const dynamic = 'force-static'
+
 export default async function AppleIcon() {
   const svg = await readFile(join(process.cwd(), 'public', 'icon.svg'), 'utf8')
   const dataUri = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
